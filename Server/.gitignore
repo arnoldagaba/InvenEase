@@ -17,3 +17,6 @@
 
 # Package-lock.json
 package-lock.json
+
+# Prisma migrations
+/prisma/migrations

@@ -3,16 +3,22 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.ts",
+  "prisma": {
+    "seed": "tsx src/scripts/seed.ts"
+  },
   "scripts": {
-    "dev": "tsx --watch src/index.ts",
-    "start": "node dist/index.js",
     "build": "tsc",
+    "start": "node --env-file=.env dist/index.js",
+    "dev": "tsx --watch --env-file=.env src/index.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "Arnold Agaba",
@@ -24,6 +30,7 @@
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "helmet": "^8.1.0",
+    "http-status-codes": "^2.3.0",
     "nodemailer": "^6.10.0",
     "socket.io": "^4.8.1"
   },
