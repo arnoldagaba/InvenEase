@@ -18,11 +18,12 @@ app.use(
         logger: logger,
 
         // Define a custom request ID generator
-        genReqId: function (req: Request, res: Response) {
+        genReqId: (req: Request, res: Response) => {
             const existingId = req.id ?? req.headers["x-request-id"];
             if (existingId) return existingId;
+
             const id = randomUUID();
-            res.setHeader("X-Request-Id", id); // Set header on response for client correlation
+            res.setHeader("x-request-id", id); // Set header on response for client correlation
             return id;
         },
 
@@ -58,14 +59,6 @@ app.use(
         // Customize error messages
         customErrorMessage: function (req: Request, res: Response, err: Error, responseTime: number) {
             return `${req.method} ${req.url} errored ${res.statusCode} in ${responseTime}ms: ${err.message}`;
-        },
-
-        // Add custom properties to the log object
-        customProps: function (req: Request) {
-            return {
-                userId: req.user?.id, // Example: Add user ID if available on req
-                traceId: req.headers["x-trace-id"], // Example: Propagate trace ID
-            };
         },
     }),
 );
