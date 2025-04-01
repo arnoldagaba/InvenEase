@@ -62,7 +62,7 @@ const transports: winston.transport[] = [
 ];
 
 // File transports - active only in production (or if explicitly configured)
-if (process.env.NODE_ENV === "production" || process.env.LOG_TO_FILES === "true") {
+if (env.NODE_ENV === "production" || env.LOG_TO_FILES === true) {
     transports.push(
         // Combined logs file transport
         new winston.transports.DailyRotateFile({

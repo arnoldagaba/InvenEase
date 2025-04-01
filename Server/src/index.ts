@@ -3,9 +3,11 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { StatusCodes } from "http-status-codes";
+import swaggerUi from "swagger-ui-express";
+import swaggerSpec from "@/config/swagger.ts";
 import env from "@/config/env.ts";
 import logger from "@/config/logger.ts";
-import morganMiddleware from "@/api/middleware/morgan.middleware.ts";
+import morganMiddleware from "@/api/middleware/morganMiddleware.ts";
 import appRoutes from "@/api/routes/index.ts";
 
 const app: Express = express();
@@ -13,7 +15,12 @@ const port = env.PORT;
 
 // === Security middleware ===
 app.use(helmet());
-app.use(cors());
+app.use(
+    cors({
+        origin: env.NODE_ENV === "production" ? "https://yourdomain.com" : "http://localhost:5173",
+        credentials: true,
+    }),
+);
 
 // === Requset body parsing ===
 app.use(cookieParser());
@@ -34,6 +41,9 @@ app.get("/health", (req: Request, res: Response) => {
 });
 
 app.use("/api/v1", appRoutes);
+
+// === Swagger Docs ===
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // --- Server ---
 const server = app.listen(port, () => {

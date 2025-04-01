@@ -3,6 +3,8 @@ interface Environment {
     NODE_ENV: string;
     DATABASE_URL: string;
     LOG_DIR: string;
+    LOG_LEVEL: string;
+    LOG_TO_FILES: boolean;
 }
 
 const env: Environment = {
@@ -10,6 +12,8 @@ const env: Environment = {
     NODE_ENV: process.env.NODE_ENV ?? "development",
     DATABASE_URL: process.env.DATABASE_URL ?? "",
     LOG_DIR: process.env.LOG_DIR ?? "",
+    LOG_LEVEL: process.env.LOG_LEVEL ?? "debug",
+    LOG_TO_FILES: process.env.LOG_TO_FILES === "true",
 };
 
 // Validate essential variables
