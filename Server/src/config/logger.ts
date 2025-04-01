@@ -1,86 +1,121 @@
-import pino from "pino";
-import dayjs from "dayjs";
-import os from "os";
-import env from "./env";
+import winston from "winston";
+import "winston-daily-rotate-file";
+import path from "path";
+import env from "./env.ts";
 
-const isProduction = env.NODE_ENV === "production";
-const defaultLogLevel = isProduction ? "info" : "debug";
+// Define log levels and colors
+const levels = {
+    error: 0,
+    warn: 1,
+    info: 2,
+    http: 3, // Morgan logs will use this level
+    debug: 4,
+};
 
-// Define transport based on environment
-const transport = pino.transport({
-    targets: [
-        // Target 1: Pretty print to console in development
-        ...(!isProduction
-            ? [
-                  {
-                      target: "pino-pretty",
-                      level: process.env.LOG_LEVEL || defaultLogLevel,
-                      options: {
-                          colorize: true,
-                          levelFirst: true,
-                          translateTime: `SYS:standard`,
-                          ignore: "pid,hostname", // Exclude noisy fields
-                      },
-                  },
-              ]
-            : []),
+const level = (): string => {
+    const environment = env.NODE_ENV || "development";
+    const isDevelopment = environment === "development";
+    return isDevelopment ? "debug" : "http"; // Log more in dev, less in prod by default
+};
 
-        // Target 2: Output JSON to stdout in production (or configure file/service transport)
-        ...(isProduction
-            ? [
-                  {
-                      target: "pino/stdout", // Pino's built-in stdout transport
-                      level: process.env.LOG_LEVEL || defaultLogLevel,
-                      options: {
-                          // Production-specific options if needed
-                          destination: "/var/log/myapp.log", // Example: Log to a file instead/as well
-                      },
-                  },
-              ]
-            : []),
+const colors = {
+    error: "red",
+    warn: "yellow",
+    info: "green",
+    http: "magenta",
+    debug: "white",
+};
 
-        // Add more targets here if needed (e.g., log service transport)
-    ],
+winston.addColors(colors);
+
+// Define the log format
+const createLogFormat = (isJson = false) => {
+    const { combine, timestamp, printf, errors, json, colorize, splat } = winston.format;
+
+    const errorStackFormat = errors({ stack: true }); // Log stack trace for errors
+
+    if (isJson) {
+        return combine(timestamp(), errorStackFormat, splat(), json());
+    }
+
+    // Human-readable format for console/dev
+    return combine(
+        timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+        colorize({ all: true }), // Colorize the entire log message
+        errorStackFormat,
+        splat(),
+        printf((info) => `[${info.timestamp}] ${info.level}: ${info.message}` + (info.stack ? `\n${info.stack}` : "")),
+    );
+};
+
+// Determine log directory
+const logDir = env.LOG_DIR || path.join(__dirname, "../../logs"); // Store logs in a 'logs' directory at the project root
+
+// Define transports based on environment
+const transports: winston.transport[] = [
+    // Console transport - always active, uses human-readable format
+    new winston.transports.Console({
+        format: createLogFormat(false), // Non-JSON for console readability
+        level: level(), // Log level based on environment
+        handleExceptions: true, // Handle uncaught exceptions
+    }),
+];
+
+// File transports - active only in production (or if explicitly configured)
+if (process.env.NODE_ENV === "production" || process.env.LOG_TO_FILES === "true") {
+    transports.push(
+        // Combined logs file transport
+        new winston.transports.DailyRotateFile({
+            level: "http", // Log http and above to this file
+            filename: path.join(logDir, "combined-%DATE%.log"),
+            datePattern: "YYYY-MM-DD",
+            zippedArchive: true, // Compress old log files
+            maxSize: "20m", // Rotate log file when it exceeds 20MB
+            maxFiles: "14d", // Retain logs for 14 days
+            format: createLogFormat(true), // Use JSON format for file logs
+            handleExceptions: true,
+        }),
+
+        // Error logs file transport
+        new winston.transports.DailyRotateFile({
+            level: "error", // Log only errors to this file
+            filename: path.join(logDir, "error-%DATE%.log"),
+            datePattern: "YYYY-MM-DD",
+            zippedArchive: true,
+            maxSize: "20m",
+            maxFiles: "30d", // Retain error logs longer
+            format: createLogFormat(true), // Use JSON format for file logs
+            handleExceptions: true, // Handle uncaught exceptions here too
+        }),
+    );
+}
+
+// Create the Winston logger instance
+const logger = winston.createLogger({
+    level: level(),
+    levels,
+    format: createLogFormat(), // Default format (will be overridden by transports)
+    transports,
+    exitOnError: false, // Do not exit on handled exceptions
 });
 
-const logger = pino(
-    {
-        level: process.env.LOG_LEVEL || defaultLogLevel,
-        timestamp: () => `,"time":"${dayjs().format()}"`,
-        // Base properties included in all logs (optional)
-        base: {
-            pid: process.pid, // Default is included, uncomment if explicitly needed elsewhere
-            hostname: os.hostname(), // Default is included
-            service: process.env.SERVICE_NAME || "my-backend-service", // Example service name
-        },
-        // Redact sensitive information
-        redact: {
-            paths: [
-                "req.headers.authorization",
-                "req.headers.cookie",
-                "req.body.password",
-                "req.body.secret",
-                "req.body.apiKey",
-                "*.password",
-                "*.secret",
-                "*.apiKey",
-            ],
-            censor: "[REDACTED]",
-            remove: false, // Set true to remove the key-value pair entirely
-        },
-        // Formatters (optional advanced customization)
-        formatters: {
-            level: (label) => {
-                return { level: label.toUpperCase() };
-            },
-            bindings: (bindings) => {
-                // Customize pid, hostname etc. if needed
-                return { pid: bindings.pid, host: bindings.hostname };
-            },
-        },
-    },
-    // Use the configured transport only if it has targets
-    transport?.targets?.length ? transport : undefined,
-);
+// Handle Uncaught Rejections (Promises) - Log them and optionally exit
+process.on("unhandledRejection", <T>(reason: Error | T, promise: Promise<T>) => {
+    logger.error(`Unhandled Rejection at: ${promise}, reason: ${(reason as Error).stack || reason}`);
+
+    // Optional: Exit process in production for unhandled rejections, might be safer to let it crash and restart
+    if (process.env.NODE_ENV === "production") {
+        process.exit(1);
+    }
+});
+
+// Handle Uncaught Exceptions - Log them and exit gracefully
+process.on("uncaughtException", (error: Error) => {
+    logger.error(`Uncaught Exception: ${error.stack || error}`);
+    // It's generally recommended to exit gracefully after an uncaught exception
+    // as the application state might be corrupted.
+    // Give Winston some time to write the log before exiting.
+    setTimeout(() => process.exit(1), 1000); // Wait 1 sec
+});
 
 export default logger;
