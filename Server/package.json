@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node --env-file=.env dist/index.js",
-    "dev": "tsx --watch --env-file=.env src/index.ts | pino-pretty",
+    "dev": "tsx --watch --env-file=.env src/index.ts",
     "type-check": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
