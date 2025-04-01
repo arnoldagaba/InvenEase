@@ -7,7 +7,7 @@ import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "@/config/swagger.ts";
 import env from "@/config/env.ts";
 import logger from "@/config/logger.ts";
-import morganMiddleware from "@/api/middleware/morganMiddleware.ts";
+import morganMiddleware from "@/api/middleware/morgan.middleware.ts";
 import appRoutes from "@/api/routes/index.ts";
 
 const app: Express = express();
