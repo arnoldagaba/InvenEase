@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import { StatusCodes } from "http-status-codes";
 import { pinoHttp } from "pino-http";
 import pino from "pino";
+import { randomUUID } from "crypto";
 import env from "@/config/env";
 import logger from "@/config/logger";
 
@@ -15,15 +16,56 @@ const port = env.PORT;
 app.use(
     pinoHttp({
         logger: logger,
+
+        // Define a custom request ID generator
+        genReqId: function (req: Request, res: Response) {
+            const existingId = req.id ?? req.headers["x-request-id"];
+            if (existingId) return existingId;
+            const id = randomUUID();
+            res.setHeader("X-Request-Id", id); // Set header on response for client correlation
+            return id;
+        },
+
+        // Define custom serializers
         serializers: {
+            // Standard serializers are usually good enough
             req: pino.stdSerializers.req,
             res: pino.stdSerializers.res,
-            err: pino.stdSerializers.err,
+            err: pino.stdSerializers.err, // Default, logs error properties + stack
         },
-        customSuccessMessage: (_req: Request, res: Response, responseTime: number) =>
-            res.statusCode === 404 ? "Resource not found" : `Request successful in ${responseTime}ms`,
-        customErrorMessage: (req: Request, res: Response) => {
-            return `${req.method} ${req.url} ${res.statusCode}`;
+
+        // Customize log level for particular status codes
+        customLogLevel: function (_req: Request, res: Response, err: Error) {
+            if (res.statusCode >= 400 && res.statusCode < 500) {
+                return "warn"; // Log client errors as warnings
+            } else if (res.statusCode >= 500 || err) {
+                return "error"; // Log server errors and uncaught exceptions as errors
+            } else if (res.statusCode >= 300 && res.statusCode < 400) {
+                return "silent"; // Don't log redirects by default
+            }
+            return "info"; // Default log level for success responses
+        },
+
+        // Customize success messages
+        customSuccessMessage: function (req: Request, res: Response, responseTime: number) {
+            // Don't log successful OPTIONS requests or common health checks (if desired)
+            if (req.method === "OPTIONS" || req.url === "/health") {
+                return ""; // Return empty string to skip logging
+            }
+            return `${req.method} ${req.url} completed ${res.statusCode} in ${responseTime}ms`;
+        },
+
+        // Customize error messages
+        customErrorMessage: function (req: Request, res: Response, err: Error, responseTime: number) {
+            return `${req.method} ${req.url} errored ${res.statusCode} in ${responseTime}ms: ${err.message}`;
+        },
+
+        // Add custom properties to the log object
+        customProps: function (req: Request) {
+            return {
+                userId: req.user?.id, // Example: Add user ID if available on req
+                traceId: req.headers["x-trace-id"], // Example: Propagate trace ID
+            };
         },
     }),
 );
@@ -57,6 +99,7 @@ const SHUTDOWN_TIMEOUT = 5000; // 5 seconds
 signals.forEach((signal) => {
     process.on(signal, async () => {
         logger.info(`\nReceived ${signal}, shutting down gracefully...`);
+        logger.flush();
 
         // Force exit after timeout
         const forceExit = setTimeout(() => {
