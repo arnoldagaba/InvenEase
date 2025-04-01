@@ -1,7 +1,7 @@
 // import { User, RefreshToken } from "@prisma/client";
 import prisma from "@/config/prisma.ts";
 import userService, { SafeUser } from "./user.service.ts";
-import { comparePassword } from "@/utils/password.util.ts";
+import { comparePassword, hashPassword } from "@/utils/password.util.ts";
 import {
     generateAccessToken,
     generateRefreshToken,
@@ -10,12 +10,13 @@ import {
     getRefreshTokenExpiration,
     AccessTokenPayload,
     RefreshTokenPayload,
+    generateResetToken,
 } from "@/utils/token.util.ts";
-import { RegisterUserInput, LoginUserInput /* RequestPasswordResetInput, ResetPasswordInput */ } from "@/api/validators/auth.validator.ts";
-import { AuthenticationError, ApiError, NotFoundError } from "@/errors/index.ts";
+import { RegisterUserInput, LoginUserInput, ResetPasswordInput, RequestPasswordResetInput } from "@/api/validators/auth.validator.ts";
+import { AuthenticationError, ApiError, NotFoundError, BadRequestError } from "@/errors/index.ts";
 import { StatusCodes } from "http-status-codes";
-// Import your email utility (we'll create a basic version later)
-// import { sendPasswordResetEmail } from '../utils/email.util';
+import { sendPasswordResetConfirmationEmail, sendPasswordResetEmail } from "@/utils/email.util.ts";
+import logger from "@/config/logger.ts";
 
 class AuthService {
     /**
@@ -224,17 +225,153 @@ class AuthService {
         console.log(`Refresh token revoked successfully (hash: ${hashedRefreshToken.substring(0, 10)}...)`);
     }
 
-    // --- Password Reset Logic (Implement later) ---
-    // async requestPasswordReset(emailData: RequestPasswordResetInput): Promise<void> { ... }
-    // async resetPassword(resetData: ResetPasswordInput): Promise<void> { ... }
+    /**
+     * Initiates the password reset process for a user.
+     * Generates a reset token, saves its hash, and sends an email.
+     * @param emailData - Contains the user's email address.
+     * @throws {NotFoundError} If the user with the given email is not found.
+     * @throws {ApiError} For internal errors during token generation/saving or email sending.
+     */
+    async requestPasswordReset(emailData: RequestPasswordResetInput): Promise<void> {
+        const { email } = emailData;
 
-    // --- Helper to revoke all tokens for a user (Security incident response) ---
-    // async revokeAllUserTokens(userId: string): Promise<void> {
-    //     await prisma.refreshToken.updateMany({
-    //         where: { userId: userId },
-    //         data: { revoked: true },
-    //     });
-    // }
+        // 1. Find user by email
+        const user = await userService.findUserByEmail(email);
+        if (!user) {
+            // Don't reveal if the email exists - send success response regardless for security.
+            // Log internally that the user wasn't found.
+            logger.warn(`Password reset requested for non-existent email: ${email}`);
+            return; // Return successfully to prevent email enumeration attacks
+            // throw new NotFoundError(`User with email ${email} not found.`); // <-- Avoid this in production
+        }
+
+        // 2. Check if user is active
+        if (!user.isActive) {
+            logger.warn(`Password reset requested for inactive user: ${email} (ID: ${user.id})`);
+            return; // Also return successfully for inactive users
+            // throw new AuthenticationError('User account is inactive.'); // <-- Avoid this
+        }
+
+        // 3. Generate reset token and expiry
+        const { token: rawToken, expires: expiresAt } = generateResetToken();
+
+        // 4. Hash the token for storage
+        const tokenHash = hashToken(rawToken);
+
+        // 5. Store the hashed token in the database
+        try {
+            // Clean up any previous tokens for this user (optional but good practice)
+            await prisma.passwordResetToken.deleteMany({
+                where: { userId: user.id },
+            });
+
+            // Create the new token entry
+            await prisma.passwordResetToken.create({
+                data: {
+                    userId: user.id,
+                    tokenHash: tokenHash,
+                    expiresAt: expiresAt,
+                },
+            });
+        } catch (error) {
+            logger.error(`Failed to save password reset token for user ${user.id}:`, error);
+            throw new ApiError("Could not process password reset request.", StatusCodes.INTERNAL_SERVER_ERROR);
+        }
+
+        // 6. Send the email with the raw token
+        // This happens *after* successfully saving the token hash
+        try {
+            await sendPasswordResetEmail(user.email, rawToken, user.firstName);
+        } catch {
+            // Email sending failures are logged by sendEmail utility
+            // Decide if this should prevent the overall success message. Usually not.
+            logger.error(`Failed to SEND password reset email for user ${user.id}, but token was generated.`);
+        }
+
+        // Success is implied by returning void without error (even if user didn't exist)
+    }
+
+    /**
+     * Resets the user's password using a valid reset token.
+     * @param resetData - Contains the reset token and the new password.
+     * @throws {BadRequestError} If the token is invalid, expired, or not found.
+     * @throws {ApiError} For internal errors during password hashing or user update.
+     */
+    async resetPassword(resetData: ResetPasswordInput): Promise<void> {
+        const { token: rawToken, newPassword } = resetData;
+
+        // 1. Hash the provided token to look it up
+        const tokenHash = hashToken(rawToken);
+
+        // 2. Find the token in the database
+        const storedToken = await prisma.passwordResetToken.findUnique({
+            where: { tokenHash },
+            include: { user: true }, // Include user data for update and email
+        });
+
+        // 3. Validate the token
+        if (!storedToken) {
+            throw new BadRequestError("Invalid or expired password reset token.");
+        }
+        if (new Date() > storedToken.expiresAt) {
+            // Clean up expired token
+            await prisma.passwordResetToken.delete({ where: { id: storedToken.id } });
+            throw new BadRequestError("Password reset token has expired.");
+        }
+        if (!storedToken.user) {
+            // Should not happen due to schema, but good check
+            logger.error(`Password reset token ${storedToken.id} has no associated user.`);
+            await prisma.passwordResetToken.delete({ where: { id: storedToken.id } }); // Clean up inconsistent token
+            throw new BadRequestError("Invalid password reset token.");
+        }
+        if (!storedToken.user.isActive) {
+            logger.warn(`Password reset attempt for inactive user: ${storedToken.user.email} (ID: ${storedToken.userId})`);
+            await prisma.passwordResetToken.delete({ where: { id: storedToken.id } }); // Clean up token
+            throw new BadRequestError("Cannot reset password for an inactive account.");
+        }
+
+        // 4. Hash the new password
+        let newPasswordHash: string;
+        try {
+            newPasswordHash = await hashPassword(newPassword);
+        } catch (error) {
+            logger.error("Password hashing failed during reset:", error);
+            throw new ApiError("Failed to process new password.", StatusCodes.INTERNAL_SERVER_ERROR);
+        }
+
+        // 5. Update the user's password and delete the token within a transaction
+        try {
+            await prisma.$transaction(async (tx) => {
+                // Update user's password
+                await tx.user.update({
+                    where: { id: storedToken.userId },
+                    data: { passwordHash: newPasswordHash },
+                });
+
+                // Delete the used password reset token
+                await tx.passwordResetToken.delete({
+                    where: { id: storedToken.id },
+                });
+
+                // Optional: Revoke all active refresh tokens for the user for security
+                await tx.refreshToken.updateMany({
+                    where: { userId: storedToken.userId, revoked: false },
+                    data: { revoked: true },
+                });
+            });
+        } catch (error) {
+            logger.error(`Failed transaction during password reset for user ${storedToken.userId}:`, error);
+            // Check for specific Prisma transaction errors if necessary
+            throw new ApiError("Could not reset password.", StatusCodes.INTERNAL_SERVER_ERROR);
+        }
+
+        // 6. Send confirmation email (outside the transaction)
+        try {
+            await sendPasswordResetConfirmationEmail(storedToken.user.email, storedToken.user.firstName);
+        } catch {
+            logger.error(`Failed to SEND password reset confirmation email for user ${storedToken.userId}.`);
+        }
+    }
 }
 
 export default new AuthService();

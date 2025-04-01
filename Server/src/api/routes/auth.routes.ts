@@ -5,6 +5,8 @@ import { authenticateToken } from "@/api//middleware/auth.middleware.ts";
 import {
     registerUserSchema,
     loginUserSchema,
+    resetPasswordSchema,
+    requestPasswordResetSchema,
     // requestPasswordResetSchema, // Import later
     // resetPasswordSchema, // Import later
 } from "@/api/validators/auth.validator.ts";
@@ -153,8 +155,74 @@ router.post("/refresh", authController.refresh);
  */
 router.post("/logout", authenticateToken, authController.logout);
 
-// --- Password Reset Routes (To be added) ---
-// router.post('/request-password-reset', ...);
-// router.post('/reset-password', ...);
+/**
+ * @openapi
+ * /auth/request-password-reset:
+ *   post:
+ *     summary: Request password reset
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RequestPasswordResetInput'
+ *     responses:
+ *       200:
+ *         description: Password reset email sent (or request acknowledged)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiMessage'
+ *       400:
+ *         description: Validation failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.post("/request-password-reset", validateRequest(requestPasswordResetSchema), authController.handleRequestPasswordReset);
+
+/**
+ * @openapi
+ * /auth/reset-password:
+ *   post:
+ *     summary: Reset password
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ResetPasswordInput'
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiMessage'
+ *       400:
+ *         description: Validation failed or invalid/expired token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       500:
+ *         description: Internal Server Error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
+router.post("/reset-password", validateRequest(resetPasswordSchema), authController.handleResetPassword);
 
 export default router;

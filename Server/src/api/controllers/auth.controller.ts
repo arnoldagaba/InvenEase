@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { StatusCodes } from "http-status-codes";
 import authService from "@/api/services/auth.service.ts";
-import { RegisterUserInput, LoginUserInput } from "@/api/validators/auth.validator.ts";
+import { RegisterUserInput, LoginUserInput, ResetPasswordInput, RequestPasswordResetInput } from "@/api/validators/auth.validator.ts";
 import { AuthenticationError } from "@/errors/AuthenticationError.ts";
 
 // Cookie options for Refresh Token
@@ -122,9 +122,42 @@ class AuthController {
         }
     }
 
-    // --- Password Reset Handlers (To be added) ---
-    // async handleRequestPasswordReset(req: Request, res: Response, next: NextFunction): Promise<void> { ... }
-    // async handleResetPassword(req: Request, res: Response, next: NextFunction): Promise<void> { ... }
+    /**
+     * @route POST /auth/request-password-reset
+     * @group Auth - Authentication operations
+     * @param {RequestPasswordResetInput.model} body.body.required - User's email address
+     * @returns {object} 200 - Password reset email sent (or request acknowledged)
+     * @property {string} message - Confirmation message
+     * @returns {ApiError.model} 400 - Validation failed
+     * @returns {ApiError.model} 500 - Internal Server Error
+     */
+    async handleRequestPasswordReset(req: Request<RequestPasswordResetInput>, res: Response, next: NextFunction): Promise<void> {
+        try {
+            await authService.requestPasswordReset(req.body);
+            // Send a generic success message regardless of whether the user exists
+            res.status(StatusCodes.OK).json({ message: "If an account with that email exists, a password reset link has been sent." });
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    /**
+     * @route POST /auth/reset-password
+     * @group Auth - Authentication operations
+     * @param {ResetPasswordInput.model} body.body.required - Reset token and new password
+     * @returns {object} 200 - Password reset successfully
+     * @property {string} message - Success message
+     * @returns {ApiError.model} 400 - Validation failed or invalid/expired token
+     * @returns {ApiError.model} 500 - Internal Server Error
+     */
+    async handleResetPassword(req: Request<ResetPasswordInput>, res: Response, next: NextFunction): Promise<void> {
+        try {
+            await authService.resetPassword(req.body);
+            res.status(StatusCodes.OK).json({ message: "Password has been reset successfully." });
+        } catch (error) {
+            next(error);
+        }
+    }
 }
 
 export default new AuthController();
