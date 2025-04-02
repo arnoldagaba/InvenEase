@@ -2,14 +2,7 @@ import { Router } from "express";
 import authController from "@/api/controllers/auth.controller.ts";
 import { validateRequest } from "@/api/middleware/validateRequest.ts";
 import { authenticateToken } from "@/api//middleware/auth.middleware.ts";
-import {
-    registerUserSchema,
-    loginUserSchema,
-    resetPasswordSchema,
-    requestPasswordResetSchema,
-    // requestPasswordResetSchema, // Import later
-    // resetPasswordSchema, // Import later
-} from "@/api/validators/auth.validator.ts";
+import { registerUserSchema, loginUserSchema, resetPasswordSchema, requestPasswordResetSchema } from "@/api/validators/auth.validator.ts";
 
 const router = Router();
 

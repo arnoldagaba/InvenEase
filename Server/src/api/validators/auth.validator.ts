@@ -35,8 +35,10 @@ export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchem
 
 export const resetPasswordSchema = z.object({
     body: z.object({
-        token: z.string().min(1, "Reset token is required"), // The token from the email link/user input
-        newPassword: passwordSchema,
+        // The token comes from the URL query param usually in frontend,
+        // but API receives it in the body often. Adjust if needed.
+        token: z.string().min(1, "Reset token is required"),
+        newPassword: passwordSchema, // Reuse the password validation schema
     }),
 });
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>["body"];

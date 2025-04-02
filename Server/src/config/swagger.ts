@@ -120,9 +120,36 @@ const options: swaggerJsdoc.Options = {
                     },
                     required: ["message"],
                 },
-                // --- Password Reset Schemas (Add later) ---
-                // RequestPasswordResetInput: { ... }
-                // ResetPasswordInput: { ... }
+                // --- Password Reset Schemas ---
+                RequestPasswordResetInput: {
+                    type: "object",
+                    properties: {
+                        email: { type: "string", format: "email", example: "user@example.com" },
+                    },
+                    required: ["email"],
+                },
+                RequestPasswordResetResponse: {
+                    type: "object",
+                    properties: {
+                        message: { type: "string", example: "If an account with that email exists, a password reset link has been sent." },
+                    },
+                    required: ["message"],
+                },
+                ResetPasswordInput: {
+                    type: "object",
+                    properties: {
+                        token: { type: "string", example: "a1b2c3d4e5f6..." }, // Example reset token
+                        newPassword: { type: "string", format: "password", example: "newSecurePassword123", minLength: 8 },
+                    },
+                    required: ["token", "newPassword"],
+                },
+                ResetPasswordResponse: {
+                    type: "object",
+                    properties: {
+                        message: { type: "string", example: "Password has been reset successfully." },
+                    },
+                    required: ["message"],
+                },
             },
         },
         // Default security applied to all paths unless overridden

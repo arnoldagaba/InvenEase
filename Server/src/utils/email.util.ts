@@ -43,7 +43,7 @@ transporter.verify((error, _success) => {
 export const sendEmail = async (mailOptions: MailOptions): Promise<void> => {
     const optionsWithFrom = {
         ...mailOptions,
-        from: `"Your App Name" <${env.EMAIL_FROM || env.EMAIL_USER}>`, // Use configured FROM address
+        from: `"InvenEase" <${env.EMAIL_FROM || env.EMAIL_USER}>`, // Use configured FROM address
     };
 
     try {
@@ -76,7 +76,7 @@ export const sendPasswordResetEmail = async (toEmail: string, token: string, use
         <p>Link: ${resetUrl}</p> <!-- Include raw link for copy-paste -->
         <br>
         <p>Thanks,</p>
-        <p>The Your App Name Team</p>
+        <p>The InvenEase Team</p>
     `;
     const textBody = `
         Hello ${userName || "User"},\n
@@ -84,7 +84,7 @@ export const sendPasswordResetEmail = async (toEmail: string, token: string, use
         Please visit the following link to set a new password. This link will expire in ${process.env.RESET_TOKEN_EXPIRATION_MINUTES || 60} minutes.\n
         ${resetUrl}\n
         If you did not request a password reset, please ignore this email.\n
-        Thanks,\nThe Your App Name Team
+        Thanks,\nThe InvenEase Team
     `;
 
     if (!env.CLIENT_URL) {
@@ -109,13 +109,13 @@ export const sendPasswordResetConfirmationEmail = async (toEmail: string, userNa
         <p>If you did not perform this action, please contact our support team immediately.</p>
         <br>
         <p>Thanks,</p>
-        <p>The Your App Name Team</p>
+        <p>The InvenEase Team</p>
     `;
     const textBody = `
         Hello ${userName || "User"},\n
         This email confirms that the password for your account has been successfully reset.\n
         If you did not perform this action, please contact our support team immediately.\n
-        Thanks,\nThe Your App Name Team
+        Thanks,\nThe InvenEase Team
     `;
 
     await sendEmail({
