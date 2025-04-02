@@ -17,7 +17,7 @@ datasource db {
 
 model User {
   id           String   @id @default(uuid())
-  email        String   @unique
+  email        String   @unique // @unique implies an index, no need for @@index([email])
   passwordHash String
   firstName    String?
   lastName     String?
@@ -28,14 +28,14 @@ model User {
 
   // Relations
   passwordResetTokens   PasswordResetToken[]
-  refreshTokens         RefreshToken[] // Add this relation
+  refreshTokens         RefreshToken[]
   notifications         Notification[]
   createdTransactions   Transaction[]        @relation("CreatedByUser")
   createdPurchaseOrders PurchaseOrder[]      @relation("CreatedByUser")
   createdSalesOrders    SalesOrder[]         @relation("CreatedByUser")
   auditLogs             AuditLog[]           @relation("PerformedByUser")
 
-  @@index([email])
+  // REMOVED: @@index([email]) // Redundant due to @unique
 }
 
 enum UserRole {
@@ -59,36 +59,34 @@ model RefreshToken {
   tokenHash String   @unique // Store a hash of the actual token (e.g., SHA256)
   userId    String
   expiresAt DateTime
-  revoked   Boolean  @default(false) // Flag to indicate if token was manually revoked (logout, etc.)
+  revoked   Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade) // Cascade delete ensures tokens are removed if user is deleted
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-  @@index([expiresAt]) // Useful for cleanup jobs
+  @@index([expiresAt])
 }
 
 // --- Core Inventory Models ---
 
 model Product {
   id           String   @id @default(uuid())
-  sku          String   @unique // Stock Keeping Unit - Essential!
+  sku          String   @unique
   name         String
   description  String?  @db.Text
   categoryId   String?
-  unit         String   @default("pcs") // e.g., pcs, kg, ltr, box
-  reorderLevel Int      @default(0) // Threshold for low stock notification
+  unit         String   @default("pcs")
+  reorderLevel Int      @default(0)
   costPrice    Float?   @default(0.0)
   sellingPrice Float?   @default(0.0)
   imageUrl     String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // Relations
   category           Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  stockLevels        StockLevel[] // Where this product is stored
-  transactions       Transaction[] // History of movements for this product
+  stockLevels        StockLevel[]
+  transactions       Transaction[]
   purchaseOrderItems PurchaseOrderItem[]
   salesOrderItems    SalesOrderItem[]
 
@@ -103,8 +101,7 @@ model Category {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
-  products Product[] // Products in this category
+  products Product[]
 }
 
 model Location {
@@ -115,28 +112,26 @@ model Location {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
-  stockLevels StockLevel[] // Stock present at this location
+  stockLevels StockLevel[]
 
-  // Corresponding relations for transactions using the defined names
-  transactionsFrom Transaction[] @relation("TransactionsFrom") // Transactions originating FROM this location
-  transactionsTo   Transaction[] @relation("TransactionsTo") // Transactions arriving TO this location
-  Transaction      Transaction[]
+  // Defined named relations for transactions
+  transactionsFrom Transaction[] @relation("TransactionsFrom")
+  transactionsTo   Transaction[] @relation("TransactionsTo")
+  // REMOVED: Redundant generic Transaction relation
+  // Transaction      Transaction[]
 }
 
-// Represents the actual quantity of a specific product at a specific location
 model StockLevel {
   id          String   @id @default(uuid())
   productId   String
   locationId  String
-  quantity    Int      @default(0) // Current quantity on hand
-  lastUpdated DateTime @updatedAt // Automatically updated when quantity changes
+  quantity    Int      @default(0)
+  lastUpdated DateTime @updatedAt
 
-  // Relations
   product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
   location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
 
-  @@unique([productId, locationId]) // A product can only have one stock level entry per location
+  @@unique([productId, locationId])
   @@index([productId])
   @@index([locationId])
 }
@@ -147,16 +142,16 @@ model Transaction {
   id             String          @id @default(uuid())
   type           TransactionType
   productId      String
-  quantityChange Int // Positive for IN, Negative for OUT
+  quantityChange Int
   notes          String?         @db.Text
   timestamp      DateTime        @default(now())
-  userId         String // User who recorded the transaction
-  relatedPoId    String? // Link to Purchase Order if applicable
-  relatedSoId    String? // Link to Sales Order if applicable
+  userId         String
+  relatedPoId    String?
+  relatedSoId    String?
 
-  // Explicit Location Tracking
-  sourceLocationId      String? // Where stock came FROM (required for SALE, ADJ_OUT, TRANSFER_OUT)
-  destinationLocationId String? // Where stock went TO (required for PURCHASE, ADJ_IN, TRANSFER_IN)
+  // Simplified Location Tracking
+  sourceLocationId      String? // Nullable, as not all transaction types have a source (e.g., initial PURCHASE)
+  destinationLocationId String? // Nullable, as not all transaction types have a destination (e.g., SALE, discard)
 
   // Relations
   product       Product        @relation(fields: [productId], references: [id])
@@ -164,11 +159,11 @@ model Transaction {
   purchaseOrder PurchaseOrder? @relation(fields: [relatedPoId], references: [id], onDelete: SetNull)
   salesOrder    SalesOrder?    @relation(fields: [relatedSoId], references: [id], onDelete: SetNull)
 
-  // Explicit named relations for locations
   sourceLocation      Location? @relation("TransactionsFrom", fields: [sourceLocationId], references: [id], onDelete: SetNull)
   destinationLocation Location? @relation("TransactionsTo", fields: [destinationLocationId], references: [id], onDelete: SetNull)
-  Location            Location? @relation(fields: [locationId], references: [id])
-  locationId          String?
+  // REMOVED: Unnamed location relation and field
+  // Location            Location? @relation(fields: [locationId], references: [id])
+  // locationId          String?
 
   @@index([productId])
   @@index([userId])
@@ -181,13 +176,12 @@ model Transaction {
 }
 
 enum TransactionType {
-  PURCHASE // Stock In from Supplier
-  SALE // Stock Out to Customer
-  ADJUSTMENT_IN // Manual Increase
-  ADJUSTMENT_OUT // Manual Decrease
-  TRANSFER_OUT // Stock sent TO another internal location (decreases source)
-  TRANSFER_IN // Stock received FROM another internal location (increases destination)
-  // You might handle transfers as a linked pair: one TRANSFER_OUT and one TRANSFER_IN
+  PURCHASE
+  SALE
+  ADJUSTMENT_IN
+  ADJUSTMENT_OUT
+  TRANSFER_OUT
+  TRANSFER_IN
 }
 
 // --- Supplier and Order Models ---
@@ -202,15 +196,14 @@ model Supplier {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // Relations
-  purchaseOrders PurchaseOrder[] // POs placed with this supplier
+  purchaseOrders PurchaseOrder[]
 }
 
 model PurchaseOrder {
   id                   String      @id @default(uuid())
-  orderNumber          String      @unique // Auto-generate or manual
+  orderNumber          String      @unique
   supplierId           String
-  userId               String // User who created the PO
+  userId               String
   status               OrderStatus @default(PENDING)
   orderDate            DateTime    @default(now())
   expectedDeliveryDate DateTime?
@@ -218,11 +211,10 @@ model PurchaseOrder {
   createdAt            DateTime    @default(now())
   updatedAt            DateTime    @updatedAt
 
-  // Relations
   supplier            Supplier            @relation(fields: [supplierId], references: [id])
   user                User                @relation("CreatedByUser", fields: [userId], references: [id])
   items               PurchaseOrderItem[]
-  relatedTransactions Transaction[] // Transactions created when stock is received
+  relatedTransactions Transaction[]
 }
 
 model PurchaseOrderItem {
@@ -231,9 +223,8 @@ model PurchaseOrderItem {
   productId        String
   quantityOrdered  Int
   quantityReceived Int    @default(0)
-  unitCost         Float // Cost at the time of order
+  unitCost         Float
 
-  // Relations
   purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
   product       Product       @relation(fields: [productId], references: [id])
 
@@ -244,9 +235,9 @@ model PurchaseOrderItem {
 // Optional: Sales Orders (if tracking customer orders)
 model SalesOrder {
   id           String      @id @default(uuid())
-  orderNumber  String      @unique // Auto-generate or manual
-  customerRef  String? // Simple customer reference (name, ID, etc.)
-  userId       String // User who created the SO
+  orderNumber  String      @unique
+  customerRef  String?
+  userId       String
   status       OrderStatus @default(PENDING)
   orderDate    DateTime    @default(now())
   shippingDate DateTime?
@@ -254,10 +245,9 @@ model SalesOrder {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  // Relations
   user                User             @relation("CreatedByUser", fields: [userId], references: [id])
   items               SalesOrderItem[]
-  relatedTransactions Transaction[] // Transactions created when stock is shipped
+  relatedTransactions Transaction[]
 }
 
 model SalesOrderItem {
@@ -266,9 +256,8 @@ model SalesOrderItem {
   productId       String
   quantityOrdered Int
   quantityShipped Int    @default(0)
-  unitPrice       Float // Price at the time of order
+  unitPrice       Float
 
-  // Relations
   salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
   product    Product    @relation(fields: [productId], references: [id])
 
@@ -277,29 +266,28 @@ model SalesOrderItem {
 }
 
 enum OrderStatus {
-  PENDING // Order created, awaiting action
-  APPROVED // PO Approved for purchase / SO Confirmed by customer
-  PROCESSING // Being fulfilled (Optional intermediate step)
-  RECEIVED // PO items received / SO items ready (if applicable)
-  SHIPPED // SO items shipped
-  PARTIAL // Partially received/shipped
-  COMPLETED // Fully received/shipped and finalized
-  CANCELLED // Order cancelled
+  PENDING
+  APPROVED
+  PROCESSING
+  RECEIVED
+  SHIPPED
+  PARTIAL
+  COMPLETED
+  CANCELLED
 }
 
 // --- System & Utility Models ---
 
 model Notification {
   id                String            @id @default(uuid())
-  userId            String // User who should receive this notification
+  userId            String
   message           String
   isRead            Boolean           @default(false)
-  type              NotificationType? // Optional: Categorize notifications
-  relatedEntityId   String? // Optional: Link to Product, Order, etc.
-  relatedEntityType String? // Optional: Type of related entity ("Product", "PurchaseOrder")
+  type              NotificationType?
+  relatedEntityId   String?
+  relatedEntityType String?
   createdAt         DateTime          @default(now())
 
-  // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -311,20 +299,19 @@ enum NotificationType {
   LOW_STOCK
   ORDER_STATUS_UPDATE
   STOCK_ADJUSTMENT
-  USER_MENTION // Example if you add commenting features
+  USER_MENTION
   SYSTEM_ALERT
 }
 
 model AuditLog {
   id        String   @id @default(uuid())
   timestamp DateTime @default(now())
-  userId    String? // User performing the action (null for system actions)
-  action    String // e.g., "CREATE_PRODUCT", "UPDATE_STOCK", "LOGIN_SUCCESS", "DELETE_USER"
-  entity    String? // e.g., "Product", "User", "StockLevel"
-  entityId  String? // ID of the affected entity
-  details   Json? // Store before/after state or additional context (be mindful of size/PII)
+  userId    String?
+  action    String
+  entity    String?
+  entityId  String?
+  details   Json?
 
-  // Relations
   user User? @relation("PerformedByUser", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([timestamp])

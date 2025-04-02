@@ -13,7 +13,7 @@
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "outDir": "./dist",
+    "outDir": "./dist", // Still relevant if you ever run tsc build
     "rootDir": "./",
     "sourceMap": true,
     "baseUrl": "./",
@@ -28,6 +28,6 @@
   ],
   "exclude": [
     "node_modules",
-    "dist"
+    "dist" // Exclude dist if you still run tsc sometimes
   ]
 }
