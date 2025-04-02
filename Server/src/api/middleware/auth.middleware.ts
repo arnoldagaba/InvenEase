@@ -3,6 +3,7 @@ import { UserRole } from "@prisma/client";
 import { ApiError, AuthenticationError, ForbiddenError } from "@/errors/index.ts";
 import { verifyAccessToken, AccessTokenPayload } from "@/utils/token.util.ts";
 import userService from "@/api//services/user.service.ts"; // To check if user is active
+import logger from "@/config/logger.ts";
 
 // Extend Express Request interface to include 'user' property
 declare global {
@@ -14,7 +15,7 @@ declare global {
     }
 }
 
-export const authenticateToken = async (req: Request, _res: Response, next: NextFunction) => {
+export const authenticateToken = async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -62,16 +63,29 @@ export const authenticateToken = async (req: Request, _res: Response, next: Next
     }
 };
 
+/**
+ * Middleware to authorize requests based on user roles.
+ * Must be used *after* authenticateToken middleware.
+ * @param allowedRoles - An array of UserRole enums that are allowed to access the route.
+ */
 export const authorizeRole = (allowedRoles: UserRole[]) => {
-    return (req: Request, _res: Response, next: NextFunction) => {
+    return (req: Request, _res: Response, next: NextFunction): void => {
+        // Check if authenticateToken middleware ran successfully and attached user
         if (!req.user || !req.user.role) {
-            next(new AuthenticationError("Authentication required.")); // Should be caught by authenticateToken first
-            return;
+            // This should ideally not happen if authenticateToken is always used before this,
+            // but it's a safeguard.
+            return next(new AuthenticationError("Authentication required. User role not found."));
         }
+
+        // Check if the user's role is included in the allowed roles
         if (!allowedRoles.includes(req.user.role)) {
-            next(new ForbiddenError("You do not have permission to perform this action.")); // Use ForbiddenError
-            return;
+            logger.warn(
+                `Forbidden access attempt by user ${req.user.userId} (Role: ${req.user.role}) to route requiring roles: ${allowedRoles.join(", ")}`,
+            );
+            return next(new ForbiddenError("You do not have permission to perform this action."));
         }
+
+        // User has the required role, proceed to the next middleware/handler
         next();
     };
 };
