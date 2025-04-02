@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from "express";
+import express, { Express, NextFunction, Request, Response } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -9,6 +9,8 @@ import env from "@/config/env.ts";
 import logger from "@/config/logger.ts";
 import morganMiddleware from "@/api/middleware/morgan.middleware.ts";
 import appRoutes from "@/api/routes/index.ts";
+import { errorHandler } from "@/api/middleware/errorHandler.ts";
+import { NotFoundError } from "@/errors/index.ts";
 
 const app: Express = express();
 const port = env.PORT;
@@ -36,7 +38,7 @@ app.get("/", (_req: Request, res: Response) => {
 });
 
 // Health check endpoint
-app.get("/health", (req: Request, res: Response) => {
+app.get("/health", (_req: Request, res: Response) => {
     res.status(StatusCodes.OK).json({ status: "OK", timestamp: new Date() });
 });
 
@@ -44,6 +46,14 @@ app.use("/api/v1", appRoutes);
 
 // === Swagger Docs ===
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// === 404 Handler ===
+app.use((req: Request, _res: Response, next: NextFunction) => {
+    next(new NotFoundError(`Not Found - ${req.originalUrl}`));
+});
+
+// --- Central API Error Handler ---
+app.use(errorHandler);
 
 // --- Server ---
 const server = app.listen(port, () => {
