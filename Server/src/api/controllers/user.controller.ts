@@ -9,7 +9,8 @@ import {
     ListUsersQuery,
     UserIdParams,
 } from "@/api/validators/user.validator.ts";
-import { AuthenticationError, ForbiddenError } from "@/errors/index.ts";
+import { ApiError, AuthenticationError, ForbiddenError } from "@/errors/index.ts";
+import logger from "@/config/logger.ts";
 
 class UserController {
     /**
@@ -76,9 +77,17 @@ class UserController {
      * @returns {ApiError.model} 409 - User with this email already exists
      * @returns {ApiError.model} 500 - Internal Server Error
      */
-    async createUser(req: Request<CreateUserInput>, res: Response, next: NextFunction): Promise<void> {
+    async createUser(req: Request, res: Response, next: NextFunction): Promise<void> {
         try {
-            const newUser = await userService.createUser(req.body);
+            // Access validated body from middleware
+            const validatedBody = req.validatedData?.body as CreateUserInput;
+            if (!validatedBody) {
+                logger.error("Validated body data is missing in createUser controller.");
+                next(new ApiError("Internal processing error: Missing validated data.", StatusCodes.INTERNAL_SERVER_ERROR));
+                return;
+            }
+
+            const newUser = await userService.createUser(validatedBody);
             res.status(StatusCodes.CREATED).json(newUser);
         } catch (error) {
             next(error);
