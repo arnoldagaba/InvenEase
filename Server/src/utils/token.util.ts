@@ -37,8 +37,8 @@ export const generateAccessToken = (payload: AccessTokenPayload): string => {
 
 export const verifyAccessToken = (token: string): AccessTokenPayload => {
     try {
-        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET) as AccessTokenPayload;
-        return decoded;
+        const decoded = jwt.verify(token, ACCESS_TOKEN_SECRET);
+        return decoded as AccessTokenPayload;
     } catch (error) {
         // Handle specific JWT errors if needed (TokenExpiredError, JsonWebTokenError)
         if (error instanceof jwt.TokenExpiredError) {
