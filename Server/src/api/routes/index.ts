@@ -9,6 +9,7 @@ import transactionRoutes from "./transaction.routes.ts";
 import supplierRoutes from "./supplier.routes.ts";
 import purchaseOrderRoutes from "./purchaseOrder.routes.ts";
 import salesOrderRoutes from "./salesOrder.routes.ts";
+import notificationRoutes from "./notification.routes.ts";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use("/transactions", transactionRoutes);
 router.use("/suppliers", supplierRoutes);
 router.use("/purchase-orders", purchaseOrderRoutes);
 router.use("/sales-orders", salesOrderRoutes);
+router.use("/notifications", notificationRoutes);
 
 export default router;
