@@ -14,6 +14,7 @@ import appRoutes from "@/api/routes/index.ts";
 import { errorHandler } from "@/api/middleware/errorHandler.ts";
 import { NotFoundError } from "@/errors/index.ts";
 import { AuthenticatedSocket } from "@/api/middleware/socket.middleware.ts";
+import { generalLimiter } from "@/config/rateLimit.ts";
 
 const app: Express = express();
 const port = env.PORT;
@@ -69,6 +70,10 @@ app.get("/health", (_req: Request, res: Response) => {
     res.status(StatusCodes.OK).json({ status: "OK", timestamp: new Date() });
 });
 
+// Rate-limit
+app.use(generalLimiter);
+
+// Mounted routes
 app.use("/api/v1", appRoutes);
 
 // === Swagger Docs ===
