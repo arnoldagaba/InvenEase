@@ -4,9 +4,7 @@ import { GetNotificationQueryInput } from "@/api/validators/notification.validat
 import { calculateSkip, getPaginationData } from "@/utils/pagination.util.ts";
 import logger from "@/config/logger.ts";
 import { NotFoundError } from "@/errors/index.ts";
-
-// (Optional: If using Socket.IO)
-// import { io } from "@/index.ts";
+import { io } from "@/index.ts";
 
 export const notificationService = {
     /**
@@ -44,18 +42,20 @@ export const notificationService = {
 
             logger.info(`Notification created for user ${userId}: "${message}" (Type: ${type || "N/A"})`);
 
-            // (Optional) Emit Socket.IO event to the specific user's room/socket
-            // This requires a mapping of userId to socketId or joining users to rooms based on their userId
-            // if (io) {
-            //    io.to(userId).emit('new_notification', {
-            //        id: newNotification.id,
-            //        message: newNotification.message,
-            //        type: newNotification.type,
-            //        createdAt: newNotification.createdAt,
-            //         // Only send necessary data to client
-            //     });
-            //    logger.debug(`Socket.IO event 'new_notification' emitted to user ${userId}`);
-            //}
+            // (Optional but implemented now) Emit Socket.IO event to the specific user's room/socket
+            if (io) {
+                // Emit event to the room named after the userId
+                io.to(userId).emit("new_notification", {
+                    // Send the event to the user's room
+                    id: newNotification.id,
+                    message: newNotification.message,
+                    type: newNotification.type,
+                    isRead: newNotification.isRead,
+                    createdAt: newNotification.createdAt,
+                    // Only send necessary data to client
+                });
+                logger.debug(`Socket.IO event 'new_notification' emitted to room ${userId}`);
+            }
 
             return newNotification;
         } catch (error) {

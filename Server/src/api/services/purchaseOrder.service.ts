@@ -10,6 +10,8 @@ import {
 import { calculateSkip, getPaginationData } from "@/utils/pagination.util.ts";
 import { auditLogService } from "./audit.service.ts";
 import { transactionService } from "./transaction.service.ts";
+import { notificationService } from "./notification.service.ts";
+import logger from "@/config/logger.ts";
 
 type PurchaseOrderWithDetails = PurchaseOrder & {
     items: (PurchaseOrderItem & { product: Product })[];
@@ -258,6 +260,18 @@ export const purchaseOrderService = {
                 notes: notes ?? po.notes, // Update notes if provided, else keep existing
             },
         });
+
+        // Notify the user who created the PO about the status change
+        notificationService
+            .createOrderStatusUpdateNotification(
+                updatedPO.id,
+                "PurchaseOrder",
+                updatedPO.orderNumber,
+                updatedPO.status,
+                updatedPO.userId, // Notify the PO creator
+                // No transaction client needed here as it's after the main update transaction
+            )
+            .catch((err) => logger.error("Failed to create PO status update notification", err));
 
         // Audit log
         await auditLogService.logAction(userId, "UPDATE_PURCHASE_ORDER_STATUS", "PurchaseOrder", updatedPO.id, {

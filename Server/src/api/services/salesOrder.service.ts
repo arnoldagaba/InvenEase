@@ -11,6 +11,8 @@ import {
 import { calculateSkip, getPaginationData } from "@/utils/pagination.util.ts";
 import { auditLogService } from "./audit.service.ts";
 import { transactionService } from "./transaction.service.ts";
+import { notificationService } from "./notification.service.ts";
+import logger from "@/config/logger.ts";
 
 interface SalesOrderWithItemsAndUser {
     id: string;
@@ -232,6 +234,17 @@ export const salesOrderService = {
             where: { id },
             data: dataToUpdate,
         });
+
+        // Notify the user who created the SO about the status change
+        notificationService
+            .createOrderStatusUpdateNotification(
+                updatedSO.id,
+                "SalesOrder",
+                updatedSO.orderNumber,
+                updatedSO.status,
+                updatedSO.userId, // Notify the SO creator
+            )
+            .catch((err) => logger.error("Failed to create SO status update notification", err));
 
         // Audit log
         await auditLogService.logAction(userId, "UPDATE_SALES_ORDER_STATUS", "SalesOrder", updatedSO.id, {

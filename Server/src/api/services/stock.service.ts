@@ -4,6 +4,7 @@ import { BadRequestError, ConflictError, NotFoundError } from "@/errors/index.ts
 import { GetStockLevelQueryInput, GetLowStockQueryInput } from "@/api/validators/stock.validator.ts";
 import { calculateSkip, getPaginationData } from "@/utils/pagination.util.ts";
 import logger from "@/config/logger.ts";
+import { notificationService } from "./notification.service.ts";
 
 interface RawStockLevelResult {
     id: number;
@@ -104,8 +105,26 @@ export const stockService = {
                 logger.info(
                     `LOW STOCK ALERT: Product ${result.product.name} (SKU: ${result.product.sku}) at Loc ${locationId} reached ${result.quantity} (Reorder level: ${result.product.reorderLevel})`,
                 );
-                // TODO: Trigger Notification Service
-                // await notificationService.createLowStockNotification(result.productId, result.locationId, result.quantity); // Example
+                // Check for crossing reorder level threshold
+                const oldQuantity = result.quantity - quantityChange;
+                if (
+                    result.product.reorderLevel > 0 && // Only if reorder level is set
+                    result.quantity <= result.product.reorderLevel && // Current is below or at threshold
+                    oldQuantity > result.product.reorderLevel // Previous was above threshold
+                ) {
+                    logger.info(
+                        `LOW STOCK ALERT Trigger: Product ${result.product.name} (SKU: ${result.product.sku}) at Loc ${locationId} reached ${result.quantity} (Reorder level: ${result.product.reorderLevel})`,
+                    );
+                    // Call notification service helper (async but don't wait for it - fire and forget usually)
+                    notificationService
+                        .createLowStockNotification(
+                            result.product,
+                            result.locationId,
+                            result.quantity,
+                            prismaClient, // Pass tx if in transaction
+                        )
+                        .catch((err: unknown) => logger.error("Failed to create low stock notification", err)); // Catch potential errors from the notification creation itself
+                }
             }
 
             return result; // Return the result including the product relation
