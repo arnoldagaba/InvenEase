@@ -17,7 +17,9 @@
     "migrate:dev": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:prepare": "dotenv -e .env.test -- npx prisma migrate deploy"
   },
   "keywords": [],
   "author": "Arnold Agaba",
@@ -53,18 +55,23 @@
     "@types/helmet": "^0.0.48",
     "@types/jsonwebtoken": "^9.0.9",
     "@types/morgan": "^1.9.9",
-    "@types/node": "^22.13.16",
+    "@types/node": "^22.14.0",
     "@types/nodemailer": "^6.4.17",
     "@types/socket.io": "^3.0.1",
     "@types/supertest": "^6.0.3",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
+    "@vitest/coverage-v8": "^3.1.1",
+    "dotenv": "^16.4.7",
     "eslint": "^9.23.0",
     "prettier": "^3.5.3",
     "prisma": "^6.5.0",
     "supertest": "^7.1.0",
     "swagger-jsdoc": "^6.2.8",
     "typescript": "^5.8.2",
-    "typescript-eslint": "^8.28.0"
+    "typescript-eslint": "^8.28.0",
+    "vite": "^6.2.5",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^3.1.1"
   }
 }

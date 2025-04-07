@@ -125,3 +125,32 @@ export const sendPasswordResetConfirmationEmail = async (toEmail: string, userNa
         text: textBody,
     });
 };
+
+export const sendWelcomeEmail = async (toEmail: string, userName?: string | null): Promise<void> => {
+    const subject = "Welcome to InvenEase!";
+    const htmlBody = `
+        <p>Hello ${userName || "User"},</p>
+        <p>Welcome to InvenEase! We're excited to have you on board.</p>
+        <p>InvenEase is designed to help you manage your inventory efficiently.</p>
+        <p>If you have any questions or need assistance, feel free to reach out to our support team.</p>
+        <p>Thanks for joining us!</p>
+        <br>
+        <p>Best regards,</p>
+        <p>The InvenEase Team</p>
+    `;
+    const textBody = `
+        Hello ${userName || "User"},\n
+        Welcome to InvenEase! We're excited to have you on board.\n
+        InvenEase is designed to help you manage your inventory efficiently.\n
+        If you have any questions or need assistance, feel free to reach out to our support team.\n
+        Thanks for joining us!\n
+        Best regards,\nThe InvenEase Team
+    `;
+
+    await sendEmail({
+        to: toEmail,
+        subject: subject,
+        html: htmlBody,
+        text: textBody,
+    });
+};

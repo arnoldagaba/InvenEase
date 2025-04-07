@@ -171,7 +171,7 @@ class UserController {
                 return;
             }
             // We already checked for existence/active status in middleware, just fetch safe data
-            const user = await userService.findUserById(req.user.userId); // findUserById returns SafeUser
+            const user = await userService.findUserById(req.user.userId);
             res.status(StatusCodes.OK).json(user);
         } catch (error) {
             // Handle NotFoundError from findUserById if middleware check failed somehow

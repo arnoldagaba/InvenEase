@@ -1,9 +1,26 @@
-// src/api/validators/transaction.validator.ts
 import { z } from "zod";
 import { TransactionType } from "@prisma/client";
 
 const uuidSchema = z.string().uuid({ message: "Invalid ID format" });
 
+/**
+ * @swagger
+ *   components:
+ *     schemas:
+ *       CreateAdjustmentInput:
+ *         type: object
+ *         properties:
+ *           productId:
+ *             type: string
+ *           locationId:
+ *             type: string
+ *           quantityChange:
+ *             type: integer
+ *           type:
+ *             type: string
+ *             description: This holds the type of transaction
+ *             enum: ["ADJUSTMENT_IN", "ADJUSTMENT_OUT"]
+ */
 // Schema for creating an Adjustment (IN or OUT)
 export const createAdjustmentSchema = z.object({
     body: z
@@ -24,6 +41,24 @@ export const createAdjustmentSchema = z.object({
 });
 export type CreateAdjustmentInput = z.infer<typeof createAdjustmentSchema>["body"];
 
+/**
+ * @swagger
+ *   components:
+ *     schemas:
+ *       CreateTransferInput:
+ *         type: object
+ *         properties:
+ *           productId:
+ *             type: string
+ *           sourceLocationId:
+ *             type: string
+ *           destinationId:
+ *             type: string
+ *           quantity:
+ *             type: integer
+ *           notes:
+ *             type: string
+ */
 // Schema for creating an Inventory Transfer
 export const createTransferSchema = z.object({
     body: z

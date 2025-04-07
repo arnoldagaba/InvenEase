@@ -49,8 +49,19 @@ export const io = new SocketIOServer(httpServer, {
 });
 
 // === Security middleware ===
-app.use(helmet());
-app.use(cors(corsOptions));
+app.use(
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                "default-src": ["'self'"],
+                "script-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudfare.com"],
+                "connect-src": ["'self'", "http://localhost:3000", "http://127.0.0.1:3000"],
+                "style-src": ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+            },
+        },
+    }),
+);
+app.use(cors(/* corsOptions */));
 
 // === Requset body parsing ===
 app.use(cookieParser());

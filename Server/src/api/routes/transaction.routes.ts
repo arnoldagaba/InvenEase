@@ -10,6 +10,36 @@ const router = Router();
 
 // --- Transaction Routes ---
 
+/**
+ * @swagger
+ *   /api/v1/transactions/adjustments:
+ *     post:
+ *       summary: Record a stock adjustment (Admin/Manager)
+ *       description: Used to record a stock adjustment
+ *       tags:
+ *         - Transactions
+ *       requestBody:
+ *          required: true
+ *          content:
+ *            application/json:
+ *              schema:
+ *               $ref: '#/components/schemas/CreateAdjustmentInput'
+ *       responses:
+ *          200:
+ *            description: A transaction object containing detailed information.
+ *            content:
+ *              application/json:
+ *                schema:
+ *                  $ref: '#/components/schemas/Transaction'
+ *          400:
+ *            description: Bad request
+ *          403:
+ *            description: Forbidden
+ *          409:
+ *            description: Conflict error
+ *       security:
+ *          - bearerAuth: []
+ */
 // POST /api/transactions/adjustments - Record a stock adjustment (Admin/Manager)
 router.post(
     "/adjustments",
@@ -19,6 +49,26 @@ router.post(
     transactionController.handleRecordAdjustment,
 );
 
+/**
+ * @swagger
+ *   /api/v1/transactions/transfers:
+ *     post:
+ *       summary: Record an inventory transfer (Admin/Manager)
+ *       description: Register an inventory transfer record
+ *       tags:
+ *         - Transactions
+ *       requestBody:
+ *          required: true
+ *          content:
+ *           application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateTransferInput'
+ *       responses:
+ *         201:
+ *           description: Transfer recorded successfully
+ *       security:
+ *          - bearerAuth: []
+ */
 // POST /api/transactions/transfers - Record an inventory transfer (Admin/Manager)
 router.post(
     "/transfers",
