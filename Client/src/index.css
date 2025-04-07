@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
-@plugin "tailwind-scrollbar"
+@plugin "tailwind-scrollbar";
+@plugin "@tailwindcss/forms";
 
 @custom-variant dark (&:where(.dark, .dark *));
