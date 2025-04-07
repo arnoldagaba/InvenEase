@@ -1,0 +1,172 @@
+/* Import Tailwind CSS v4 */
+@import "tailwindcss";
+
+/* Specify content sources for Tailwind to scan (optional, as v4 auto-detects, but keeps explicit control) */
+@source "./index.html";
+@source "./src/**/*.{js,ts,jsx,tsx}";
+
+/* Include Tailwind plugins */
+@plugin "@tailwindcss/forms";
+@plugin "tailwind-scrollbar";
+
+/* Define CSS variables for light and dark themes */
+:root {
+  /* Light Theme Variables (Default) */
+  --color-primary: 262 84% 58%; /* Example: Purple */
+  --color-primary-light: 262 80% 68%;
+  --color-primary-dark: 262 80% 48%;
+  --color-primary-foreground: 210 40% 98%; /* Text on primary */
+
+  --color-secondary: 210 40% 96.1%; /* Example: Light Gray */
+  --color-secondary-foreground: 222.2 47.4% 11.2%; /* Text on secondary */
+
+  --color-background: 0 0% 100%; /* White */
+  --color-foreground: 222.2 47.4% 11.2%; /* Dark Grayish Blue */
+  --color-card: 0 0% 100%; /* White */
+  --color-card-foreground: 222.2 47.4% 11.2%;
+  --color-border: 214.3 31.8% 91.4%; /* Light Gray */
+  --color-input: 214.3 31.8% 91.4%; /* Input border */
+
+  --color-destructive: 0 84.2% 60.2%; /* Red */
+  --color-destructive-foreground: 210 40% 98%;
+  --color-success: 142 71% 45%; /* Green */
+  --color-success-foreground: 210 40% 98%;
+  --color-warning: 48 96% 59%; /* Yellow */
+  --color-warning-foreground: 38 92% 50%;
+
+  /* Border radius variable */
+  --radius: 0.5rem;
+}
+
+.dark {
+  /* Dark Theme Variables */
+  --color-primary: 262 84% 68%; /* Lighter Purple */
+  --color-primary-light: 262 80% 78%;
+  --color-primary-dark: 262 80% 58%;
+  --color-primary-foreground: 210 40% 98%;
+
+  --color-secondary: 217.2 32.6% 17.5%; /* Dark Grayish Blue */
+  --color-secondary-foreground: 210 40% 98%; /* Text on secondary */
+
+  --color-background: 222.2 47.4% 11.2%; /* Darkest Grayish Blue */
+  --color-foreground: 210 40% 98%; /* Light Gray */
+  --color-card: 222.2 47.4% 11.2%; /* Darkest Grayish Blue */
+  --color-card-foreground: 210 40% 98%;
+  --color-border: 217.2 32.6% 17.5%; /* Dark Grayish Blue */
+  --color-input: 217.2 32.6% 17.5%;
+
+  --color-destructive: 0 72% 51%; /* Lighter Red */
+  --color-destructive-foreground: 210 40% 98%;
+  --color-success: 142 71% 55%; /* Lighter Green */
+  --color-success-foreground: 222.2 47.4% 11.2%;
+  --color-warning: 48 96% 70%; /* Lighter Yellow */
+  --color-warning-foreground: 222.2 47.4% 11.2%;
+}
+
+
+/* Define custom theme colors using CSS variables */
+@theme {
+  --color-primary: var(--color-primary);
+  --color-primary-light: var(--color-primary-light);
+  --color-primary-dark: var(--color-primary-dark);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-foreground: var(--color-secondary-foreground);
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-card: var(--color-card);
+  --color-card-foreground: var(--color-card-foreground);
+  --color-border: var(--color-border);
+  --color-input: var(--color-input);
+  --color-destructive: var(--color-destructive);
+  --color-destructive-foreground: var(--color-destructive-foreground);
+  --color-success: var(--color-success);
+  --color-success-foreground: var(--color-success-foreground);
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-warning-foreground);
+}
+
+
+/* Custom base styles */
+@layer base {
+  * {
+    @apply border-border; /* Default border color */
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    @apply transition-colors duration-200; /* Smooth theme transition */
+    font-feature-settings: "rlig" 1, "calt" 1; /* Enable nice font ligatures */
+    /* Optionally add a default font here, e.g., font-family: 'Inter', sans-serif; */
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Style react-datepicker */
+  .react-datepicker {
+    @apply bg-card border border-border rounded-md shadow-md text-sm;
+  }
+  .react-datepicker__header {
+    @apply bg-secondary text-secondary-foreground p-2 rounded-t-md;
+  }
+  .react-datepicker__current-month,
+  .react-datepicker-time__header,
+  .react-datepicker-year-header {
+    @apply font-semibold;
+  }
+  .react-datepicker__day-name,
+  .react-datepicker__day,
+  .react-datepicker__time-name {
+    @apply w-8 h-8 leading-8 text-center m-1;
+  }
+  .react-datepicker__day {
+    @apply rounded-full hover:bg-secondary;
+  }
+  .react-datepicker__day--selected,
+  .react-datepicker__day--keyboard-selected {
+    @apply bg-primary text-primary-foreground rounded-full;
+  }
+  .react-datepicker__day--outside-month {
+    @apply text-foreground/50;
+  }
+  /* Dark mode adjustments for datepicker (usually inherits via CSS vars) */
+  .dark .react-datepicker {
+    /* Add specific overrides if needed */
+  }
+}
+
+/* Custom component styles */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground shadow hover:bg-primary/90;
+  }
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80;
+  }
+  .btn-destructive {
+    @apply bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90;
+  }
+  .btn-outline {
+    @apply border border-input bg-transparent shadow-sm hover:bg-secondary hover:text-secondary-foreground;
+  }
+  .btn-ghost {
+    @apply hover:bg-secondary hover:text-secondary-foreground;
+  }
+  .btn-lg {
+    @apply h-10 rounded-md px-8;
+  }
+  .btn-md {
+    @apply h-9 px-4 py-2;
+  }
+  .btn-sm {
+    @apply h-8 rounded-md px-3 text-xs;
+  }
+  .btn-icon {
+    @apply h-9 w-9;
+  }
+}

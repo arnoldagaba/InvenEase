@@ -7,6 +7,7 @@ export default defineConfig({
         globals: true, // Use Vitest globals (describe, it, expect, etc.) without importing
         environment: "node", // Specify the test environment (Node.js for backend)
         setupFiles: ["./tests/vitest.setup.ts"], // Path to your global setup file
+        hookTimeout: 70000, // Optional: Increase timeout for hooks if needed
         // Optional: Configure coverage
         coverage: {
             provider: "v8", // or 'istanbul'
@@ -36,6 +37,6 @@ export default defineConfig({
             // },
         },
         // Optional: Increase default test timeout if needed (e.g., for DB operations)
-        testTimeout: 10000, // 10 seconds
+        // testTimeout: 10000, // 10 seconds
     },
 });
