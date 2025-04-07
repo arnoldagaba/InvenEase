@@ -61,7 +61,7 @@ app.use(
         },
     }),
 );
-app.use(cors(/* corsOptions */));
+app.use(cors(corsOptions));
 
 // === Requset body parsing ===
 app.use(cookieParser());

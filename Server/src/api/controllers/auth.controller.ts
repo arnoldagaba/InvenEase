@@ -7,7 +7,7 @@ import { AuthenticationError } from "@/errors/AuthenticationError.ts";
 // Cookie options for Refresh Token
 const refreshTokenCookieOptions = {
     httpOnly: true, // Prevent client-side JS access
-    secure: process.env.NODE_ENV === "production", // Send only over HTTPS in production
+    // secure: process.env.NODE_ENV === "production", // Send only over HTTPS in production
     sameSite: "lax" as const, // CSRF protection ('strict' might be too restrictive for some flows)
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days (should match refresh token expiry) - make dynamic later if needed
     // domain: 'yourdomain.com' // Set domain for production
@@ -20,7 +20,7 @@ class AuthController {
             const newUser = await authService.register(req.body);
             res.status(StatusCodes.CREATED).json(newUser);
         } catch (error) {
-            next(error); // Pass error to the global error handler
+            next(error);
         }
     }
 

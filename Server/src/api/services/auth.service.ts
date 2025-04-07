@@ -49,7 +49,7 @@ class AuthService {
 
         const isPasswordValid = await comparePassword(password, user.passwordHash);
         if (!isPasswordValid) {
-            throw new AuthenticationError("Invalid email or password.");
+            throw new BadRequestError("Invalid email or password.");
         }
 
         const accessTokenPayload: AccessTokenPayload = {
