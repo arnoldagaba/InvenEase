@@ -12,25 +12,25 @@
 /* Define CSS variables for light and dark themes */
 :root {
   /* Light Theme Variables (Default) */
-  --color-primary: 262 84% 58%; /* Example: Purple */
-  --color-primary-light: 262 80% 68%;
-  --color-primary-dark: 262 80% 48%;
-  --color-primary-foreground: 210 40% 98%; /* Text on primary */
+  --color-primary: oklch(0.54 0.2475 292.84); /* Example: Purple */
+  --color-primary-light: oklch(0.64 0.1896 297.74);
+  --color-primary-dark: oklch(0.47 0.2544 288.11);
+  --color-primary-foreground: oklch(0.98 0.0035 247.86); /* Text on primary */
 
-  --color-secondary: 210 40% 96.1%; /* Example: Light Gray */
-  --color-secondary-foreground: 222.2 47.4% 11.2%; /* Text on secondary */
+  --color-secondary: oklch(0.97 0.0068 247.9); /* Example: Light Gray */
+  --color-secondary-foreground: oklch(0.21 0.0399 265.73); /* Text on secondary */
 
-  --color-background: 0 0% 100%; /* White */
-  --color-foreground: 222.2 47.4% 11.2%; /* Dark Grayish Blue */
-  --color-card: 0 0% 100%; /* White */
-  --color-card-foreground: 222.2 47.4% 11.2%;
-  --color-border: 214.3 31.8% 91.4%; /* Light Gray */
-  --color-input: 214.3 31.8% 91.4%; /* Input border */
+  --color-background: oklch(1 0 0); /* White */
+  --color-foreground: oklch(0.21 0.0399 265.73); /* Dark Grayish Blue */
+  --color-card: oklch(1 0 0); /* White */
+  --color-card-foreground: oklch(0.21 0.0399 265.73);
+  --color-border: oklch(0.93 0.0126 255.53)%; /* Light Gray */
+  --color-input: oklch(0.93 0.0126 255.53)%; /* Input border */
 
   --color-destructive: 0 84.2% 60.2%; /* Red */
-  --color-destructive-foreground: 210 40% 98%;
+  --color-destructive-foreground: oklch(0.98 0.0035 247.86);
   --color-success: 142 71% 45%; /* Green */
-  --color-success-foreground: 210 40% 98%;
+  --color-success-foreground: oklch(0.98 0.0035 247.86);
   --color-warning: 48 96% 59%; /* Yellow */
   --color-warning-foreground: 38 92% 50%;
 
@@ -40,27 +40,27 @@
 
 .dark {
   /* Dark Theme Variables */
-  --color-primary: 262 84% 68%; /* Lighter Purple */
-  --color-primary-light: 262 80% 78%;
-  --color-primary-dark: 262 80% 58%;
-  --color-primary-foreground: 210 40% 98%;
+  --color-primary: oklch(0.64 0.1981 297.38); /* Lighter Purple */
+  --color-primary-light: oklch(0.75 0.1302 300.16);
+  --color-primary-dark: oklch(0.54 0.2389 293.55);
+  --color-primary-foreground: oklch(0.98 0.0035 247.86);
 
-  --color-secondary: 217.2 32.6% 17.5%; /* Dark Grayish Blue */
-  --color-secondary-foreground: 210 40% 98%; /* Text on secondary */
+  --color-secondary: oklch(0.28 0.0369 259.97); /* Dark Grayish Blue */
+  --color-secondary-foreground: oklch(0.98 0.0035 247.86); /* Text on secondary */
 
-  --color-background: 222.2 47.4% 11.2%; /* Darkest Grayish Blue */
-  --color-foreground: 210 40% 98%; /* Light Gray */
-  --color-card: 222.2 47.4% 11.2%; /* Darkest Grayish Blue */
-  --color-card-foreground: 210 40% 98%;
-  --color-border: 217.2 32.6% 17.5%; /* Dark Grayish Blue */
-  --color-input: 217.2 32.6% 17.5%;
+  --color-background: oklch(0.21 0.0399 265.73); /* Darkest Grayish Blue */
+  --color-foreground: oklch(0.98 0.0035 247.86); /* Light Gray */
+  --color-card: oklch(0.21 0.0399 265.73); /* Darkest Grayish Blue */
+  --color-card-foreground: oklch(0.98 0.0035 247.86);
+  --color-border: oklch(0.28 0.0369 259.97); /* Dark Grayish Blue */
+  --color-input: oklch(0.28 0.0369 259.97);
 
-  --color-destructive: 0 72% 51%; /* Lighter Red */
-  --color-destructive-foreground: 210 40% 98%;
-  --color-success: 142 71% 55%; /* Lighter Green */
-  --color-success-foreground: 222.2 47.4% 11.2%;
-  --color-warning: 48 96% 70%; /* Lighter Yellow */
-  --color-warning-foreground: 222.2 47.4% 11.2%;
+  --color-destructive: oklch(0.58 0.2137 27.17); /* Lighter Red */
+  --color-destructive-foreground: oklch(0.98 0.0035 247.86);
+  --color-success: oklch(0.79 0.195065 150.8089); /* Lighter Green */
+  --color-success-foreground: oklch(0.21 0.0399 265.73);
+  --color-warning: oklch(0.9 0.14 95.41); /* Lighter Yellow */
+  --color-warning-foreground: oklch(0.21 0.0399 265.73);
 }
 
 
@@ -140,7 +140,7 @@
 /* Custom component styles */
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50;
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 disabled:pointer-events-none disabled:opacity-50;
   }
   .btn-primary {
     @apply bg-primary text-primary-foreground shadow hover:bg-primary/90;
