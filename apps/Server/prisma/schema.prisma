@@ -1,0 +1,769 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  // relationMode = "prisma"
+}
+
+// --- ENUMS ---
+enum SalesOrderStatus {
+  PENDING
+  PROCESSING
+  PARTIALLY_SHIPPED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}
+
+enum PurchaseOrderStatus {
+  PENDING
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+  RETURNED
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum InventoryTransactionType {
+  RECEIPT_PURCHASE
+  SHIPMENT_SALES
+  ADJUSTMENT_ADD
+  ADJUSTMENT_REMOVE
+  TRANSFER_OUT
+  TRANSFER_IN
+  RETURN_CUSTOMER
+  RETURN_SUPPLIER
+  INITIAL_STOCK
+  PRODUCTION_OUTPUT
+  PRODUCTION_CONSUMPTION
+}
+
+enum StockAdjustmentReason {
+  CYCLE_COUNT
+  DAMAGE
+  THEFT_LOSS
+  FOUND
+  EXPIRY
+  OTHER
+}
+
+enum StockTransferStatus {
+  PENDING
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum ReturnReason {
+  DEFECTIVE
+  WRONG_ITEM
+  DAMAGED_IN_TRANSIT
+  NO_LONGER_WANTED
+  ORDER_ERROR
+  OTHER
+}
+
+enum ReturnedItemCondition {
+  SELLABLE
+  DAMAGED_REQUIRES_REPAIR
+  UNSELLABLE_DISPOSE
+  QUARANTINED
+}
+
+enum CustomerReturnStatus {
+  PENDING
+  RECEIVED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum SupplierReturnStatus {
+  PENDING_SHIPMENT
+  SHIPPED
+  RECEIVED_BY_SUPPLIER
+  COMPLETED
+  CANCELLED
+}
+
+enum SerialNumberStatus {
+  IN_STOCK
+  SHIPPED
+  RETURNED
+  SCRAPPED
+}
+
+// --- MODELS ---
+model Category {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Product {
+  id                Int     @id @default(autoincrement())
+  name              String
+  description       String?
+  sku               String  @unique
+  categoryId        Int
+  unitOfMeasure     String  @default("Each")
+  averageCost       Int?    @default(0) // Currency value
+  isTrackedByBatch  Boolean @default(false)
+  isTrackedBySerial Boolean @default(false)
+  defaultSupplierId Int?
+  supplierSku       String?
+
+  category              Category                 @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  defaultSupplier       Supplier?                @relation(fields: [defaultSupplierId], references: [id], onDelete: SetNull)
+  inventoryLocations    InventoryStockLocation[]
+  purchaseOrderItems    PurchaseOrderItem[]
+  salesOrderItems       SalesOrderItem[]
+  batches               Batch[]
+  serialNumbers         SerialNumber[]
+  stockAdjustments      StockAdjustment[]
+  customerReturnItems   CustomerReturnItem[]
+  supplierReturnItems   SupplierReturnItem[]
+  inventoryTransactions InventoryTransaction[]
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  StockTransferItem StockTransferItem[]
+
+  @@index([categoryId])
+  @@index([defaultSupplierId])
+}
+
+model Warehouse {
+  id                  Int     @id @default(autoincrement())
+  name                String  @unique
+  address             String?
+  isPickingLocation   Boolean @default(true)
+  isReceivingLocation Boolean @default(true)
+  managerId           Int?
+
+  manager            User?               @relation("WarehouseManager", fields: [managerId], references: [id], onDelete: SetNull)
+  locations          WarehouseLocation[]
+  stockTransfersFrom StockTransfer[]     @relation("TransferFrom")
+  stockTransfersTo   StockTransfer[]     @relation("TransferTo")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@index([managerId])
+}
+
+model WarehouseLocation {
+  id                 Int     @id @default(autoincrement())
+  warehouseId        Int
+  code               String
+  description        String?
+  isDefaultReceiving Boolean @default(false)
+  isDefaultPicking   Boolean @default(false)
+
+  warehouse          Warehouse                @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  stock              InventoryStockLocation[]
+  createdAt          DateTime                 @default(now())
+  updatedAt          DateTime                 @updatedAt
+  StockAdjustment    StockAdjustment[]
+  CustomerReturnItem CustomerReturnItem[]
+  SerialNumber       SerialNumber[]
+
+  @@unique([warehouseId, code])
+  @@index([warehouseId])
+}
+
+model InventoryStockLocation {
+  id                  Int  @id @default(autoincrement())
+  productId           Int
+  warehouseLocationId Int
+  batchId             Int?
+  quantity            Int
+
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouseLocation     WarehouseLocation      @relation(fields: [warehouseLocationId], references: [id], onDelete: Restrict)
+  batch                 Batch?                 @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  inventoryTransactions InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, warehouseLocationId, batchId])
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([batchId])
+}
+
+model Supplier {
+  id              Int     @id @default(autoincrement())
+  name            String  @unique
+  contactName     String?
+  contactEmail    String?
+  contactPhone    String?
+  address         String?
+  paymentTerms    String?
+  defaultCurrency String  @default("UGX") // Set default
+
+  products        Product[]
+  purchaseOrders  PurchaseOrder[]
+  supplierReturns SupplierReturn[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model PurchaseOrder {
+  id                   Int                 @id @default(autoincrement())
+  supplierId           Int
+  orderDate            DateTime            @default(now())
+  expectedDeliveryDate DateTime?
+  actualDeliveryDate   DateTime?
+  status               PurchaseOrderStatus @default(PENDING)
+  shippingAddress      String?
+  trackingNumber       String?
+  carrierId            Int?
+  notes                String?
+  createdBy            Int
+  subTotal             Int? // UGX - Whole number. Calculated: sum(item.quantity * item.unitCost). App layer rounds.
+  taxAmount            Int? // UGX - Whole number. Calculated. App layer rounds.
+  shippingCost         Int?                @default(0) // UGX - Whole number
+  totalAmount          Int? // UGX - Whole number. Calculated. App layer rounds.
+
+  supplier              Supplier               @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  carrier               Carrier?               @relation(fields: [carrierId], references: [id], onDelete: SetNull)
+  createdByUser         User                   @relation("PurchaseOrderCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  items                 PurchaseOrderItem[]
+  events                PurchaseOrderEvent[]
+  tasks                 Task[]
+  supplierReturns       SupplierReturn[]
+  inventoryTransactions InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([carrierId])
+  @@index([createdBy])
+}
+
+model PurchaseOrderItem {
+  id                 Int      @id @default(autoincrement())
+  purchaseOrderId    Int
+  productId          Int
+  quantityOrdered    Int
+  quantityReceived   Int      @default(0)
+  unitCost           Int // UGX - Whole number. Cost per unit AT THE TIME OF ORDERING
+  discountPercentage Decimal? @default(0) // Use Decimal for rate precision
+  taxRate            Decimal? @default(0) // Use Decimal for rate precision
+  totalCost          Int? // UGX - Whole number. Calculated in app layer, rounded.
+
+  purchaseOrder         PurchaseOrder          @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryTransactions InventoryTransaction[]
+
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  SupplierReturnItem SupplierReturnItem[]
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+model Customer {
+  id                     Int     @id @default(autoincrement())
+  name                   String
+  accountNumber          String? @unique
+  contactName            String?
+  contactEmail           String? @unique
+  contactPhone           String?
+  defaultShippingAddress String?
+  defaultBillingAddress  String?
+  creditLimit            Int? // UGX - Whole number
+  paymentTerms           String?
+  taxExempt              Boolean @default(false)
+
+  salesOrders     SalesOrder[]
+  customerReturns CustomerReturn[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+}
+
+model Carrier {
+  id          Int     @id @default(autoincrement())
+  name        String  @unique
+  trackingUrl String?
+
+  salesOrders    SalesOrder[]
+  purchaseOrders PurchaseOrder[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model SalesOrder {
+  id                    Int              @id @default(autoincrement())
+  customerId            Int
+  orderDate             DateTime         @default(now())
+  requestedDeliveryDate DateTime?
+  scheduledDeliveryDate DateTime?
+  actualDeliveryDate    DateTime?
+  status                SalesOrderStatus @default(PENDING)
+  shippingAddress       String?
+  billingAddress        String?
+  trackingNumber        String?
+  carrierId             Int?
+  notes                 String?
+  createdBy             Int
+  subTotal              Int? // UGX - Whole number. Calculated. App layer rounds.
+  taxAmount             Int? // UGX - Whole number. Calculated. App layer rounds.
+  shippingCost          Int?             @default(0) // UGX - Whole number
+  discountAmount        Int?             @default(0) // UGX - Whole number. Order-level discount value. App layer rounds.
+  totalAmount           Int? // UGX - Whole number. Calculated. App layer rounds.
+
+  customer              Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  carrier               Carrier?               @relation(fields: [carrierId], references: [id], onDelete: SetNull)
+  createdByUser         User                   @relation("SalesOrderCreatedBy", fields: [createdBy], references: [id], onDelete: Restrict)
+  items                 SalesOrderItem[]
+  events                SalesOrderEvent[]
+  tasks                 Task[]
+  customerReturns       CustomerReturn[]
+  inventoryTransactions InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([status])
+  @@index([carrierId])
+  @@index([createdBy])
+}
+
+model SalesOrderItem {
+  id                 Int      @id @default(autoincrement())
+  salesOrderId       Int
+  productId          Int
+  quantityOrdered    Int
+  quantityShipped    Int      @default(0)
+  unitPrice          Int // UGX - Whole number. Renamed from 'price'
+  discountPercentage Decimal? @default(0) // Use Decimal for rate precision
+  taxRate            Decimal? @default(0) // Use Decimal for rate precision
+  isBackordered      Boolean  @default(false)
+  totalPrice         Int? // UGX - Whole number. Calculated in app layer, rounded.
+
+  salesOrder            SalesOrder             @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  inventoryTransactions InventoryTransaction[]
+  customerReturnItems   CustomerReturnItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([salesOrderId])
+  @@index([productId])
+}
+
+model Role {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  // permissions Permission[] // Still consider adding for fine-grained control later
+  users       User[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id        Int     @id @default(autoincrement())
+  username  String  @unique
+  password  String // !!! Stores HASHED password, never plaintext !!!
+  email     String  @unique
+  firstName String?
+  lastName  String?
+  roleId    Int
+  isActive  Boolean @default(true) // For disabling accounts
+
+  // --- Authentication Support Fields ---
+  passwordResetToken     String?   @unique // Stores temporary token for password reset
+  passwordResetExpires   DateTime? // Expiry time for the reset token
+  emailVerificationToken String?   @unique // Stores temporary token for email verification
+  isEmailVerified        Boolean   @default(false) // Has the user verified their email?
+  lastLoginAt            DateTime? // Tracks last successful login time
+
+  // --- Relationships ---
+  role                           Role                   @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  managedWarehouses              Warehouse[]            @relation("WarehouseManager")
+  createdPurchaseOrders          PurchaseOrder[]        @relation("PurchaseOrderCreatedBy")
+  createdSalesOrders             SalesOrder[]           @relation("SalesOrderCreatedBy")
+  notifications                  Notification[]
+  triggeredSalesOrderEvents      SalesOrderEvent[]      @relation("TriggeredByUser")
+  triggeredPurchaseOrderEvents   PurchaseOrderEvent[]   @relation("TriggeredByUser")
+  assignedTasks                  Task[]                 @relation("AssignedUser")
+  triggeredInventoryTransactions InventoryTransaction[] @relation("TriggeredByUser")
+  processedStockAdjustments      StockAdjustment[]      @relation("ProcessedByUser")
+  initiatedStockTransfers        StockTransfer[]        @relation("InitiatedByUser")
+  completedStockTransfers        StockTransfer[]        @relation("CompletedByUser")
+  processedCustomerReturns       CustomerReturn[]       @relation("ProcessedByUser")
+  processedSupplierReturns       SupplierReturn[]       @relation("ProcessedByUser")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roleId])
+  @@index([email])
+}
+
+model Notification {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  message           String
+  isRead            Boolean  @default(false)
+  relatedEntityType String?
+  relatedEntityId   Int?
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model SalesOrderEvent {
+  id           Int      @id @default(autoincrement())
+  salesOrderId Int
+  eventType    String
+  details      String?
+  timestamp    DateTime @default(now())
+  userId       Int
+
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id], onDelete: Cascade)
+  user       User       @relation("TriggeredByUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([salesOrderId])
+  @@index([userId])
+}
+
+model PurchaseOrderEvent {
+  id              Int      @id @default(autoincrement())
+  purchaseOrderId Int
+  eventType       String
+  details         String?
+  timestamp       DateTime @default(now())
+  userId          Int
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  user          User          @relation("TriggeredByUser", fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([purchaseOrderId])
+  @@index([userId])
+}
+
+model Task {
+  id          Int        @id @default(autoincrement())
+  title       String
+  description String?
+  assignedTo  Int?
+  status      TaskStatus @default(PENDING)
+  dueDate     DateTime?
+  priority    Int?       @default(0)
+
+  salesOrderId     Int?
+  purchaseOrderId  Int?
+  customerId       Int?
+  productId        Int?
+  warehouseId      Int?
+  stockTransferId  Int?
+  customerReturnId Int?
+  supplierReturnId Int?
+
+  assignedToUser User?          @relation("AssignedUser", fields: [assignedTo], references: [id], onDelete: SetNull)
+  salesOrder     SalesOrder?    @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  purchaseOrder  PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  // Add other relations...
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  StockTransfer  StockTransfer?  @relation(fields: [stockTransferId], references: [id])
+  CustomerReturn CustomerReturn? @relation(fields: [customerReturnId], references: [id])
+  SupplierReturn SupplierReturn? @relation(fields: [supplierReturnId], references: [id])
+
+  @@index([assignedTo])
+  @@index([status])
+  @@index([salesOrderId])
+  @@index([purchaseOrderId])
+}
+
+model InventoryTransaction {
+  id                    Int                      @id @default(autoincrement())
+  productId             Int
+  warehouseLocationId   Int
+  quantityChange        Int
+  newQuantityAtLocation Int
+  transactionType       InventoryTransactionType
+  timestamp             DateTime                 @default(now())
+  userId                Int
+  notes                 String?
+
+  purchaseOrderItemId  Int?
+  salesOrderItemId     Int?
+  stockAdjustmentId    Int?
+  stockTransferId      Int?
+  customerReturnItemId Int?
+  supplierReturnItemId Int?
+  batchId              Int?
+  serialNumberId       Int?
+
+  product            Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  user               User                   @relation("TriggeredByUser", fields: [userId], references: [id], onDelete: Restrict)
+  warehouseLocation  InventoryStockLocation @relation(fields: [warehouseLocationId], references: [id], onDelete: Restrict)
+  purchaseOrderItem  PurchaseOrderItem?     @relation(fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
+  salesOrderItem     SalesOrderItem?        @relation(fields: [salesOrderItemId], references: [id], onDelete: SetNull)
+  stockAdjustment    StockAdjustment?       @relation(fields: [stockAdjustmentId], references: [id], onDelete: SetNull)
+  stockTransfer      StockTransfer?         @relation(fields: [stockTransferId], references: [id], onDelete: SetNull)
+  customerReturnItem CustomerReturnItem?    @relation(fields: [customerReturnItemId], references: [id], onDelete: SetNull)
+  supplierReturnItem SupplierReturnItem?    @relation(fields: [supplierReturnItemId], references: [id], onDelete: SetNull)
+  batch              Batch?                 @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  serialNumber       SerialNumber?          @relation(fields: [serialNumberId], references: [id], onDelete: Restrict)
+  PurchaseOrder      PurchaseOrder?         @relation(fields: [purchaseOrderId], references: [id])
+  purchaseOrderId    Int?
+  SalesOrder         SalesOrder?            @relation(fields: [salesOrderId], references: [id])
+  salesOrderId       Int?
+
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([transactionType])
+  @@index([userId])
+  @@index([purchaseOrderItemId])
+  @@index([salesOrderItemId])
+  @@index([stockAdjustmentId])
+  @@index([stockTransferId])
+  @@index([batchId])
+  @@index([serialNumberId])
+  @@index([customerReturnItemId])
+  @@index([supplierReturnItemId])
+}
+
+model StockAdjustment {
+  id                  Int                   @id @default(autoincrement())
+  productId           Int
+  warehouseLocationId Int // Adjusted: More specific than warehouseId
+  adjustmentQuantity  Int
+  reason              StockAdjustmentReason
+  notes               String?
+  processedByUserId   Int
+  processedAt         DateTime              @default(now())
+
+  product              Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  warehouseLocation    WarehouseLocation      @relation(fields: [warehouseLocationId], references: [id], onDelete: Restrict)
+  processedByUser      User                   @relation("ProcessedByUser", fields: [processedByUserId], references: [id], onDelete: Restrict)
+  inventoryTransaction InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([productId])
+  @@index([warehouseLocationId])
+  @@index([processedByUserId])
+}
+
+model StockTransfer {
+  id                Int                 @id @default(autoincrement())
+  transferNumber    String?             @unique
+  fromWarehouseId   Int
+  toWarehouseId     Int
+  status            StockTransferStatus @default(PENDING)
+  notes             String?
+  initiatedByUserId Int
+  initiatedAt       DateTime            @default(now())
+  shippedAt         DateTime?
+  receivedAt        DateTime?
+  completedByUserId Int?
+
+  fromWarehouse         Warehouse              @relation("TransferFrom", fields: [fromWarehouseId], references: [id], onDelete: Restrict)
+  toWarehouse           Warehouse              @relation("TransferTo", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+  initiatedByUser       User                   @relation("InitiatedByUser", fields: [initiatedByUserId], references: [id], onDelete: Restrict)
+  completedByUser       User?                  @relation("CompletedByUser", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  items                 StockTransferItem[]
+  inventoryTransactions InventoryTransaction[]
+  tasks                 Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([status])
+  @@index([initiatedByUserId])
+  @@index([completedByUserId])
+}
+
+model StockTransferItem {
+  id              Int  @id @default(autoincrement())
+  stockTransferId Int
+  productId       Int
+  quantity        Int
+  batchId         Int?
+  serialNumberId  Int?
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  batch         Batch?        @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  serialNumber  SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: Restrict)
+
+  @@index([stockTransferId])
+  @@index([productId])
+  @@index([batchId])
+  @@index([serialNumberId])
+}
+
+model CustomerReturn {
+  id                   Int                  @id @default(autoincrement())
+  returnNumber         String?              @unique
+  customerId           Int
+  originalSalesOrderId Int?
+  status               CustomerReturnStatus
+  notes                String?
+  processedByUserId    Int?
+  processedAt          DateTime?
+
+  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  salesOrder      SalesOrder?          @relation(fields: [originalSalesOrderId], references: [id], onDelete: SetNull)
+  processedByUser User?                @relation("ProcessedByUser", fields: [processedByUserId], references: [id], onDelete: SetNull)
+  items           CustomerReturnItem[]
+  tasks           Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@index([originalSalesOrderId])
+  @@index([status])
+  @@index([processedByUserId])
+}
+
+model CustomerReturnItem {
+  id                       Int                   @id @default(autoincrement())
+  customerReturnId         Int
+  originalSalesOrderItemId Int?
+  productId                Int
+  quantityReturned         Int
+  reason                   ReturnReason
+  condition                ReturnedItemCondition
+  notes                    String?
+  restockLocationId        Int?
+
+  customerReturn       CustomerReturn         @relation(fields: [customerReturnId], references: [id], onDelete: Cascade)
+  product              Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  salesOrderItem       SalesOrderItem?        @relation(fields: [originalSalesOrderItemId], references: [id], onDelete: SetNull)
+  restockLocation      WarehouseLocation?     @relation(fields: [restockLocationId], references: [id], onDelete: SetNull)
+  inventoryTransaction InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerReturnId])
+  @@index([originalSalesOrderItemId])
+  @@index([productId])
+  @@index([restockLocationId])
+}
+
+model SupplierReturn {
+  id                      Int                  @id @default(autoincrement())
+  returnNumber            String?              @unique
+  supplierId              Int
+  originalPurchaseOrderId Int?
+  status                  SupplierReturnStatus
+  shippingCost            Int? // UGX - Whole number
+  trackingNumber          String?
+  notes                   String?
+  processedByUserId       Int?
+  processedAt             DateTime?
+
+  supplier        Supplier             @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  purchaseOrder   PurchaseOrder?       @relation(fields: [originalPurchaseOrderId], references: [id], onDelete: SetNull)
+  processedByUser User?                @relation("ProcessedByUser", fields: [processedByUserId], references: [id], onDelete: SetNull)
+  items           SupplierReturnItem[]
+  tasks           Task[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierId])
+  @@index([originalPurchaseOrderId])
+  @@index([status])
+  @@index([processedByUserId])
+}
+
+model SupplierReturnItem {
+  id                          Int          @id @default(autoincrement())
+  supplierReturnId            Int
+  originalPurchaseOrderItemId Int?
+  productId                   Int
+  quantityReturned            Int
+  reason                      ReturnReason
+  notes                       String?
+
+  supplierReturn       SupplierReturn         @relation(fields: [supplierReturnId], references: [id], onDelete: Cascade)
+  product              Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  purchaseOrderItem    PurchaseOrderItem?     @relation(fields: [originalPurchaseOrderItemId], references: [id], onDelete: SetNull)
+  inventoryTransaction InventoryTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([supplierReturnId])
+  @@index([originalPurchaseOrderItemId])
+  @@index([productId])
+}
+
+model Batch {
+  id                Int       @id @default(autoincrement())
+  productId         Int
+  batchNumber       String
+  manufacturingDate DateTime?
+  expiryDate        DateTime?
+
+  product               Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  stockLocations        InventoryStockLocation[]
+  inventoryTransactions InventoryTransaction[]
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  StockTransferItem StockTransferItem[]
+
+  @@unique([productId, batchNumber])
+  @@index([productId])
+  @@index([expiryDate])
+}
+
+model SerialNumber {
+  id                Int                @id @default(autoincrement())
+  productId         Int
+  serialNumber      String
+  status            SerialNumberStatus
+  currentLocationId Int?
+
+  product               Product                @relation(fields: [productId], references: [id], onDelete: Restrict)
+  currentLocation       WarehouseLocation?     @relation(fields: [currentLocationId], references: [id], onDelete: SetNull)
+  inventoryTransactions InventoryTransaction[]
+  stockTransferItems    StockTransferItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([productId, serialNumber])
+  @@index([productId])
+  @@index([status])
+  @@index([currentLocationId])
+}
